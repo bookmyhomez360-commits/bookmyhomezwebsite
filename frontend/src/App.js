@@ -1,54 +1,69 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import "@/App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
-import { HOME } from "@/constants/testIds";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  useLocation,
+} from "react-router-dom";
+import Lenis from "lenis";
+import { Toaster } from "@/components/ui/sonner";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+import SplashScreen from "@/components/SplashScreen";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
+import WhatsAppFab from "@/components/WhatsAppFab";
+import { ListPropertyDialog } from "@/components/ListProperty";
+import Home from "@/pages/Home";
+import SearchResults from "@/pages/SearchResults";
+import PropertyDetail from "@/pages/PropertyDetail";
 
-const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
-    }
-  };
-
+function ScrollToTop() {
+  const { pathname, search } = useLocation();
   useEffect(() => {
-    helloWorldApi();
-  }, []);
-
-  return (
-    <div>
-      <header className="App-header">
-        <a
-          data-testid={HOME.emergentLink}
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
-    </div>
-  );
-};
+    window.scrollTo(0, 0);
+  }, [pathname, search]);
+  return null;
+}
 
 function App() {
+  const [splashRemoved, setSplashRemoved] = useState(false);
+  const [listOpen, setListOpen] = useState(false);
+
+  useEffect(() => {
+    const lenis = new Lenis({ lerp: 0.09, smoothWheel: true });
+    let raf;
+    const loop = (t) => {
+      lenis.raf(t);
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => {
+      cancelAnimationFrame(raf);
+      lenis.destroy();
+    };
+  }, []);
+
+  const openList = () => setListOpen(true);
+
   return (
-    <div className="App">
+    <div className="App grain">
       <BrowserRouter>
+        <ScrollToTop />
+        {!splashRemoved && (
+          <SplashScreen onExited={() => setSplashRemoved(true)} />
+        )}
+        <Navbar onListClick={openList} />
         <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
+          <Route path="/" element={<Home onListClick={openList} />} />
+          <Route path="/search" element={<SearchResults />} />
+          <Route path="/property/:id" element={<PropertyDetail />} />
         </Routes>
+        <Footer onListClick={openList} />
+        <WhatsAppFab />
+        <ListPropertyDialog open={listOpen} onOpenChange={setListOpen} />
       </BrowserRouter>
+      <Toaster position="top-center" theme="dark" richColors />
     </div>
   );
 }
