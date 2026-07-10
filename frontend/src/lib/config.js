@@ -4,10 +4,10 @@ export const BRAND = {
   logo: "https://customer-assets.emergentagent.com/job_property-showcase-440/artifacts/5enm92pw_bmh%20logo.jpeg",
   whatsapp: "9916475749",
   whatsappIntl: "919916475749",
-  instagram: "https://www.instagram.com/book.myhomez",
-  facebook: "https://facebook.com",
-  youtube: "https://youtube.com",
-  email: "hello@bookmyhomez.com",
+  instagram: "https://www.instagram.com/book.myhomez?igsh=MXJ1NXAyMGdybzdzaA==",
+  facebook: "https://www.facebook.com/profile.php?id=61579564084213&mibextid=wwXIfr",
+  youtube: "https://youtube.com/@bookmyhomez?si=uf7lYpboUeimRswW",
+  email: "bookmyhomez360@gmail.com",
   address: "WeWork Prestige Central, Bengaluru, Karnataka 560001",
 };
 
