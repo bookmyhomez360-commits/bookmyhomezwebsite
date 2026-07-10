@@ -1,0 +1,142 @@
+{
+  "theme": "dark",
+  "brand": {
+    "name": "BookMyHomez",
+    "logo_url": "https://customer-assets.emergentagent.com/job_property-showcase-440/artifacts/5enm92pw_bmh%20logo.jpeg",
+    "whatsapp": "9916475749",
+    "instagram": "https://www.instagram.com/book.myhomez"
+  },
+  "typography": {
+    "fonts": {
+      "headings": "'Playfair Display', serif",
+      "body": "'Outfit', sans-serif"
+    },
+    "hierarchy": {
+      "h1": "text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight",
+      "h2": "text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-tight",
+      "h3": "text-2xl sm:text-3xl font-medium",
+      "body": "text-base md:text-lg text-slate-300",
+      "small": "text-sm text-slate-400 uppercase tracking-widest"
+    }
+  },
+  "colors": {
+    "background": {
+      "main": "bg-slate-950",
+      "alternate": "bg-black"
+    },
+    "surface": {
+      "glass": "bg-white/5 backdrop-blur-xl border border-white/10",
+      "solid": "bg-slate-900 border border-slate-800"
+    },
+    "text": {
+      "primary": "text-white",
+      "secondary": "text-slate-400",
+      "accent": "text-indigo-400"
+    },
+    "brand_accent": {
+      "primary": "bg-indigo-600 hover:bg-indigo-700 text-white",
+      "glow": "shadow-[0_0_20px_rgba(79,70,229,0.3)]"
+    }
+  },
+  "visual_enhancers": {
+    "textures": "Use subtle noise/grain overlay on dark backgrounds.",
+    "borders": "1px borders with white/10 opacity to separate elements without heavy shadows.",
+    "hover_effects": "Slight scale-up (scale-105) on images, brightness increase on glass cards, text color shift to white on hover.",
+    "shadows": "Minimal. Use ambient glow (drop-shadow) for active elements."
+  },
+  "layouts": {
+    "grid_system": "Bento grids for category and location showcases. Use gap-6 or gap-8.",
+    "spacing": "Generous spacing. Use py-24 or py-32 for main sections. Container padding px-4 md:px-8 lg:px-12.",
+    "alignment": "Left-align dense text. Center-align hero elements. Optical alignment for icons."
+  },
+  "motion": {
+    "libraries": [
+      "framer-motion",
+      "@studio-freight/react-lenis"
+    ],
+    "choreography": {
+      "opening_sequence": "Full-screen fixed overlay (z-[100]). Logo scales in smoothly. After 2s, overlay slides up (y: '-100%') revealing the hero section.",
+      "hero_reveal": "Masked line-by-line reveal for the headline 'Find a home you\\'ll actually want to come back to'. Text wrapped in overflow-hidden, inner span translates from y: 100% to y: 0.",
+      "scroll_animations": "Use framer-motion whileInView to trigger fade-up and slight y-translation for section headings and cards.",
+      "momentum_scrolling": "Implement Lenis wrapper for smooth buttery scrolling."
+    }
+  },
+  "components": {
+    "buttons": "Pill-shaped (rounded-full). Primary uses indigo-600. Secondary uses transparent with border-white/20. Add active:scale-95 on tap.",
+    "cards": "Cardless or flat rectangular with 1px border. No heavy shadows. Use glassmorphism only for sticky headers and small floating elements.",
+    "tabs": "Search interface tabs should be underlined or pill-shaped with active state background. Smooth layout animation between active tabs using layoutId in framer-motion.",
+    "inputs": "Shadcn-like styling. bg-white/5 border border-white/10 text-white placeholder-slate-500 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500."
+  },
+  "image_urls": [
+    {
+      "category": "Hero Background",
+      "url": "https://images.unsplash.com/photo-1505843513577-22bb7d21e455?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODB8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjByZWFsJTIwZXN0YXRlJTIwbW9kZXJuJTIwaG9tZSUyMG5pZ2h0JTIwZXh0ZXJpb3J8ZW58MHx8fHwxNzgzNjc3Njk1fDA&ixlib=rb-4.1.0&q=85",
+      "description": "Luxury real estate exterior at night"
+    },
+    {
+      "category": "Category - Homes to Buy",
+      "url": "https://images.unsplash.com/photo-1564078516393-cf04bd966897?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzNDR8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBsaXZpbmclMjByb29tJTIwaW50ZXJpb3IlMjBsdXh1cnl8ZW58MHx8fHwxNzgzNjc3Njk1fDA&ixlib=rb-4.1.0&q=85",
+      "description": "Modern living room"
+    },
+    {
+      "category": "Category - Rentals",
+      "url": "https://images.unsplash.com/photo-1719266084633-24981ecdc417?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzR8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjBhcGFydG1lbnQlMjBiYWxjb255JTIwdmlld3xlbnwwfHx8fDE3ODM2Nzc2OTV8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Luxury apartment balcony view"
+    },
+    {
+      "category": "Category - Short Stays",
+      "url": "https://images.unsplash.com/photo-1590490360182-c33d57733427?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1ODR8MHwxfHNlYXJjaHwxfHxib3V0aXF1ZSUyMGhvdGVsJTIwcm9vbSUyMGx1eHVyeXxlbnwwfHx8fDE3ODM2Nzc2OTV8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Boutique hotel room"
+    },
+    {
+      "category": "Category - Land & Plots",
+      "url": "https://images.unsplash.com/photo-1667344238075-c3742c5f86a1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzl8MHwxfHNlYXJjaHwxfHxlbXB0eSUyMGxhbmQlMjBwbG90JTIwZ3JlZW4lMjBmaWVsZHxlbnwwfHx8fDE3ODM2Nzc2OTV8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Empty land plot"
+    },
+    {
+      "category": "Location - Mumbai",
+      "url": "https://images.unsplash.com/photo-1569758267239-d08deb78bb1a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzV8MHwxfHNlYXJjaHwxfHxtdW1iYWklMjBza3lsaW5lJTIwZ2F0ZXdheXxlbnwwfHx8fDE3ODM2Nzc2OTV8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Mumbai Bandra Worli Sea Link"
+    },
+    {
+      "category": "Location - Bengaluru",
+      "url": "https://images.unsplash.com/photo-1764686630524-2d399d87fa2d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzJ8MHwxfHNlYXJjaHwxfHxiZW5nYWx1cnUlMjBjaXR5JTIwbW9kZXJuJTIwYnVpbGRpbmd8ZW58MHx8fHwxNzgzNjc3Njk1fDA&ixlib=rb-4.1.0&q=85",
+      "description": "Bengaluru modern building"
+    },
+    {
+      "category": "Location - Pune",
+      "url": "https://images.pexels.com/photos/38296599/pexels-photo-38296599.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "description": "Pune skyline sunset"
+    },
+    {
+      "category": "Location - Jaipur",
+      "url": "https://images.unsplash.com/photo-1631987398000-e627564b3847?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDN8MHwxfHNlYXJjaHwxfHxqYWlwdXIlMjBoYXdhbWFoYWwlMjBhcmNoaXRlY3R1cmV8ZW58MHx8fHwxNzgzNjc3Njk1fDA&ixlib=rb-4.1.0&q=85",
+      "description": "Jaipur Hawa Mahal"
+    }
+  ],
+  "accessibility": {
+    "test_ids": "All interactive elements (buttons, links, inputs, tabs) MUST have data-testid attributes (e.g., data-testid='tab-rent').",
+    "contrast": "Ensure white text over images has a dark gradient overlay (e.g., bg-gradient-to-t from-black/80 to-transparent) for readability.",
+    "focus": "Visible focus states using focus:ring-2 on inputs/buttons."
+  },
+  "instructions_to_main_agent": [
+    "Use JavaScript (.jsx/.js) instead of TypeScript.",
+    "Apply 'Playfair Display' and 'Outfit' via Google Fonts in index.html.",
+    "Implement Lenis for smooth scrolling at the root level.",
+    "Create the animated logo splash screen using framer-motion that unmounts or slides away to reveal the main content.",
+    "The hero section needs a real functional search tab component with 'Buy', 'Rent', 'Short Stay', and 'Agents'.",
+    "Use standard grid/flex HTML tags, avoiding overly nested structure, keep DOM clean.",
+    "For the Footer, use lucide-react for icons (WhatsApp, Instagram, Facebook, YouTube).",
+    "Never use purely transparent backgrounds on elements overlaying text, always add a glass blur or solid color.",
+    "Include a smooth editorial marquee with slow speed for the 'manifesto' or brand highlights."
+  ],
+  "universal_guidelines_for_main_agent": [
+    "Do not use generic centered layouts or simplistic gradients.",
+    "Create depth with layered elements and z-index hierarchy.",
+    "Use glass-morphism effects with 12-24px blur.",
+    "Avoid universal transition (transition: all). Use specific properties.",
+    "NEVER center align the app container in global css (.App { text-align: center }).",
+    "NEVER use placeholder AI emojis for icons.",
+    "Every interaction needs micro-animations (hover states, active states)."
+  ]
+}
