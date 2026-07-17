@@ -1,6 +1,13 @@
+import { useEffect } from "react";
 import { BRAND } from "@/lib/config";
 
 export default function SplashScreen({ onExited }) {
+  useEffect(() => {
+    // Fallback so the overlay never blocks the app if animationend doesn't fire
+    const t = setTimeout(() => onExited?.(), 3600);
+    return () => clearTimeout(t);
+  }, [onExited]);
+
   return (
     <div
       data-testid="splash-screen"

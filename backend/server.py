@@ -1,7 +1,9 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, UploadFile, File
+from fastapi.responses import Response as FastAPIResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorGridFSBucket
+from bson import ObjectId
 import os
 import asyncio
 import json
@@ -10,17 +12,18 @@ import uuid
 from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 from seed_data import CITIES, PROPERTIES, AGENTS
+import auth as auth_utils
 
-# MongoDB connection
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
+bucket = AsyncIOMotorGridFSBucket(db)
 
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
 RESEND_API_KEY = os.environ.get('RESEND_API_KEY')
@@ -35,17 +38,29 @@ logging.basicConfig(level=logging.INFO,
 logger = logging.getLogger(__name__)
 
 
-# ----------------------------- Models -----------------------------
 def now_iso():
     return datetime.now(timezone.utc).isoformat()
 
 
-class ListingCreate(BaseModel):
-    owner_name: str
-    phone: str
-    email: Optional[str] = None
-    property_title: str
-    listing_type: str  # buy | rent | shortstay
+# ----------------------------- Models -----------------------------
+class RegisterReq(BaseModel):
+    name: str
+    email: str
+    password: str
+
+
+class LoginReq(BaseModel):
+    email: str
+    password: str
+
+
+class GoogleSessionReq(BaseModel):
+    session_id: str
+
+
+class PropertyIn(BaseModel):
+    title: str
+    type: str
     category: str
     city: str
     price: Optional[float] = None
@@ -53,29 +68,68 @@ class ListingCreate(BaseModel):
     bathrooms: Optional[int] = 0
     area_sqft: Optional[float] = 0
     description: Optional[str] = ""
-    images: List[str] = Field(default_factory=list)  # base64 data URLs
+    images: List[str] = Field(default_factory=list)
+    video: Optional[str] = None
+    # rich wizard fields (all optional, stored as-is)
+    location: Optional[str] = None
+    transaction_type: Optional[str] = None
+    prop_category: Optional[str] = None
+    property_type: Optional[str] = None
+    currency: Optional[str] = "INR"
+    security_deposit: Optional[float] = None
+    availability: Optional[str] = None
+    available_date: Optional[str] = None
+    facing: Optional[str] = None
+    furnishing: Optional[str] = None
+    total_units: Optional[int] = None
+    total_floors: Optional[int] = None
+    super_area: Optional[float] = None
+    area_unit: Optional[str] = "sqft"
+    overview: Optional[str] = None
+    cover_index: Optional[int] = 0
+
+
+class EnquiryReq(BaseModel):
+    name: str
+    phone: str
+    message: Optional[str] = ""
 
 
 class AiSearchRequest(BaseModel):
     query: str
 
 
-# ----------------------------- Helpers -----------------------------
+# ----------------------------- Auth deps -----------------------------
+async def require_auth(request: Request):
+    user = await auth_utils.resolve_user(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return user
+
+
+async def require_admin(request: Request):
+    user = await require_auth(request)
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    return user
+
+
+# ----------------------------- Seed -----------------------------
 async def ensure_seed():
-    count = await db.properties.count_documents({})
-    if count == 0:
+    if await db.properties.count_documents({}) == 0:
         docs = []
         for p in PROPERTIES:
             doc = dict(p)
             doc["id"] = str(uuid.uuid4())
             doc["created_at"] = now_iso()
             doc["source"] = "seed"
+            doc["owner_id"] = None
+            doc["video"] = None
             docs.append(doc)
         await db.properties.insert_many(docs)
         logger.info("Seeded %d properties", len(docs))
     if await db.cities.count_documents({}) == 0:
         await db.cities.insert_many([dict(c) for c in CITIES])
-        logger.info("Seeded cities")
     if await db.agents.count_documents({}) == 0:
         agents = []
         for a in AGENTS:
@@ -83,7 +137,6 @@ async def ensure_seed():
             doc["id"] = str(uuid.uuid4())
             agents.append(doc)
         await db.agents.insert_many(agents)
-        logger.info("Seeded agents")
 
 
 def build_query(type=None, city=None, category=None, min_price=None,
@@ -115,12 +168,125 @@ def build_query(type=None, city=None, category=None, min_price=None,
     return query
 
 
-# ----------------------------- Routes -----------------------------
-@api_router.get("/")
-async def root():
-    return {"message": "BookMyHomez API"}
+def _price_unit(ptype):
+    return "month" if ptype == "rent" else ("night" if ptype == "shortstay" else "total")
 
 
+# ----------------------------- Auth routes -----------------------------
+@api_router.post("/auth/register")
+async def register(req: RegisterReq, response: Response):
+    email = req.email.strip().lower()
+    if not email or not req.password:
+        raise HTTPException(status_code=400, detail="Email and password required")
+    if await db.users.find_one({"email": email}):
+        raise HTTPException(status_code=400, detail="Email already registered")
+    user_id = auth_utils.new_user_id()
+    user = {
+        "user_id": user_id,
+        "email": email,
+        "password_hash": auth_utils.hash_password(req.password),
+        "name": req.name.strip() or email.split("@")[0],
+        "role": auth_utils.role_for_email(email),
+        "picture": "",
+        "created_at": now_iso(),
+    }
+    await db.users.insert_one(user)
+    token = auth_utils.create_access_token(user_id, email)
+    auth_utils.set_auth_cookie(response, token)
+    return {"user_id": user_id, "email": email, "name": user["name"], "role": user["role"], "picture": "", "token": token}
+
+
+@api_router.post("/auth/login")
+async def login(req: LoginReq, response: Response):
+    email = req.email.strip().lower()
+    user = await db.users.find_one({"email": email})
+    if not user or not user.get("password_hash") or not auth_utils.verify_password(req.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    token = auth_utils.create_access_token(user["user_id"], email)
+    auth_utils.set_auth_cookie(response, token)
+    return {"user_id": user["user_id"], "email": email, "name": user.get("name"), "role": user.get("role"), "picture": user.get("picture", ""), "token": token}
+
+
+@api_router.post("/auth/google/session")
+async def google_session(req: GoogleSessionReq, response: Response):
+    data = await auth_utils.fetch_google_session(req.session_id)
+    email = data["email"].strip().lower()
+    existing = await db.users.find_one({"email": email})
+    if existing:
+        user_id = existing["user_id"]
+        await db.users.update_one({"email": email}, {"$set": {
+            "name": data.get("name", existing.get("name")),
+            "picture": data.get("picture", existing.get("picture", "")),
+        }})
+        role = existing.get("role") or auth_utils.role_for_email(email)
+    else:
+        user_id = auth_utils.new_user_id()
+        role = auth_utils.role_for_email(email)
+        await db.users.insert_one({
+            "user_id": user_id,
+            "email": email,
+            "name": data.get("name", email.split("@")[0]),
+            "picture": data.get("picture", ""),
+            "role": role,
+            "created_at": now_iso(),
+        })
+    session_token = data["session_token"]
+    await db.user_sessions.update_one(
+        {"session_token": session_token},
+        {"$set": {
+            "user_id": user_id,
+            "session_token": session_token,
+            "expires_at": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
+            "created_at": now_iso(),
+        }},
+        upsert=True,
+    )
+    auth_utils.set_auth_cookie(response, session_token, key="session_token")
+    return {"user_id": user_id, "email": email, "name": data.get("name"), "role": role, "picture": data.get("picture", "")}
+
+
+@api_router.get("/auth/me")
+async def me(user=Depends(require_auth)):
+    return user
+
+
+@api_router.post("/auth/logout")
+async def logout(request: Request, response: Response):
+    st = request.cookies.get("session_token")
+    if st:
+        await db.user_sessions.delete_one({"session_token": st})
+    response.delete_cookie("access_token", path="/")
+    response.delete_cookie("session_token", path="/")
+    return {"status": "ok"}
+
+
+# ----------------------------- Media (GridFS) -----------------------------
+@api_router.post("/media")
+async def upload_media(file: UploadFile = File(...), user=Depends(require_auth)):
+    data = await file.read()
+    max_mb = 60
+    if len(data) > max_mb * 1024 * 1024:
+        raise HTTPException(status_code=413, detail=f"File exceeds {max_mb}MB")
+    file_id = await bucket.upload_from_stream(
+        file.filename or "upload",
+        data,
+        metadata={"content_type": file.content_type, "owner": user["user_id"]},
+    )
+    return {"id": str(file_id), "url": f"/api/media/{file_id}", "content_type": file.content_type}
+
+
+@api_router.get("/media/{file_id}")
+async def get_media(file_id: str):
+    try:
+        stream = await bucket.open_download_stream(ObjectId(file_id))
+    except Exception:
+        raise HTTPException(status_code=404, detail="File not found")
+    data = await stream.read()
+    ct = (stream.metadata or {}).get("content_type") or "application/octet-stream"
+    return FastAPIResponse(content=data, media_type=ct)
+
+
+# ----------------------------- Public data -----------------------------
 @api_router.get("/cities")
 async def get_cities():
     cities = await db.cities.find({}, {"_id": 0}).to_list(100)
@@ -135,9 +301,6 @@ async def get_stats():
         "properties": await db.properties.count_documents({}),
         "cities": await db.cities.count_documents({}),
         "agents": await db.agents.count_documents({}),
-        "buy": await db.properties.count_documents({"type": "buy"}),
-        "rent": await db.properties.count_documents({"type": "rent"}),
-        "shortstay": await db.properties.count_documents({"type": "shortstay"}),
     }
 
 
@@ -161,14 +324,27 @@ async def get_properties(type: Optional[str] = None, city: Optional[str] = None,
                          q: Optional[str] = None, featured: Optional[bool] = None,
                          limit: int = 60):
     query = build_query(type, city, category, min_price, max_price, bedrooms, q, featured)
-    props = await db.properties.find(query, {"_id": 0}).sort("created_at", -1).to_list(limit)
-    return props
+    return await db.properties.find(query, {"_id": 0}).sort("created_at", -1).to_list(limit)
 
 
 @api_router.get("/agents")
 async def get_agents(city: Optional[str] = None):
     query = {"city": city} if city else {}
     return await db.agents.find(query, {"_id": 0}).to_list(100)
+
+
+# ----------------------------- My / Admin listings -----------------------------
+@api_router.get("/my/properties")
+async def my_properties(user=Depends(require_auth)):
+    if user.get("role") == "admin":
+        return await db.properties.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return await db.properties.find({"owner_id": user["user_id"]}, {"_id": 0}).sort("created_at", -1).to_list(200)
+
+
+@api_router.get("/my/leads")
+async def my_leads(user=Depends(require_auth)):
+    query = {} if user.get("role") == "admin" else {"owner_id": user["user_id"]}
+    return await db.leads.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
 
 
 @api_router.get("/properties/{property_id}")
@@ -179,68 +355,89 @@ async def get_property(property_id: str):
     return prop
 
 
-@api_router.post("/listings")
-async def create_listing(listing: ListingCreate):
-    doc = listing.model_dump()
-    doc["id"] = str(uuid.uuid4())
-    doc["created_at"] = now_iso()
-    doc["status"] = "pending"
-    prop = {
-        "id": doc["id"],
-        "title": doc["property_title"],
-        "type": doc["listing_type"],
-        "category": doc["category"],
-        "city": doc["city"],
-        "price": doc.get("price") or 0,
-        "price_unit": "month" if doc["listing_type"] == "rent" else ("night" if doc["listing_type"] == "shortstay" else "total"),
-        "bedrooms": doc.get("bedrooms") or 0,
-        "bathrooms": doc.get("bathrooms") or 0,
-        "area_sqft": doc.get("area_sqft") or 0,
-        "description": doc.get("description") or "",
-        "images": doc.get("images") or [],
+@api_router.post("/properties")
+async def create_property(prop: PropertyIn, user=Depends(require_auth)):
+    doc = prop.model_dump()
+    doc.update({
+        "id": str(uuid.uuid4()),
+        "price_unit": _price_unit(prop.type),
+        "price": prop.price or 0,
         "featured": False,
-        "created_at": doc["created_at"],
+        "created_at": now_iso(),
         "source": "user",
-        "owner_name": doc["owner_name"],
-        "owner_phone": doc["phone"],
+        "owner_id": user["user_id"],
+        "owner_name": user.get("name"),
+        "owner_role": user.get("role"),
+    })
+    await db.properties.insert_one(dict(doc))
+    doc.pop("_id", None)
+    await notify_owner_new_listing(doc, user)
+    return doc
+
+
+@api_router.put("/properties/{property_id}")
+async def update_property(property_id: str, prop: PropertyIn, user=Depends(require_auth)):
+    existing = await db.properties.find_one({"id": property_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Property not found")
+    if user.get("role") != "admin" and existing.get("owner_id") != user["user_id"]:
+        raise HTTPException(status_code=403, detail="You can only edit your own listings")
+    updates = prop.model_dump()
+    updates["price_unit"] = _price_unit(prop.type)
+    updates["price"] = prop.price or 0
+    await db.properties.update_one({"id": property_id}, {"$set": updates})
+    return await db.properties.find_one({"id": property_id}, {"_id": 0})
+
+
+@api_router.delete("/properties/{property_id}")
+async def delete_property(property_id: str, user=Depends(require_auth)):
+    existing = await db.properties.find_one({"id": property_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Property not found")
+    if user.get("role") != "admin" and existing.get("owner_id") != user["user_id"]:
+        raise HTTPException(status_code=403, detail="You can only delete your own listings")
+    await db.properties.delete_one({"id": property_id})
+    return {"status": "deleted"}
+
+
+@api_router.post("/properties/{property_id}/enquiry")
+async def create_enquiry(property_id: str, enq: EnquiryReq):
+    prop = await db.properties.find_one({"id": property_id}, {"_id": 0})
+    if not prop:
+        raise HTTPException(status_code=404, detail="Property not found")
+    lead = {
+        "id": str(uuid.uuid4()),
+        "property_id": property_id,
+        "property_title": prop.get("title"),
+        "owner_id": prop.get("owner_id"),
+        "name": enq.name,
+        "phone": enq.phone,
+        "message": enq.message,
+        "created_at": now_iso(),
     }
-    await db.listings.insert_one(dict(doc))
-    await db.properties.insert_one(prop)
-    email_sent = await send_owner_notification(doc)
-    return {"status": "success", "id": doc["id"], "email_sent": email_sent}
+    await db.leads.insert_one(dict(lead))
+    return {"status": "success"}
 
 
-async def send_owner_notification(doc):
+# ----------------------------- Email -----------------------------
+async def notify_owner_new_listing(doc, user):
     if not RESEND_API_KEY:
         logger.info("RESEND_API_KEY not set - skipping email notification")
         return False
     try:
         import resend
         resend.api_key = RESEND_API_KEY
-        html = f"""
-        <div style="font-family:Arial,sans-serif;color:#0f172a">
-          <h2 style="color:#4f46e5">New Property Listing - BookMyHomez</h2>
-          <table style="border-collapse:collapse;width:100%">
-            <tr><td style="padding:6px 0"><b>Owner</b></td><td>{doc['owner_name']}</td></tr>
-            <tr><td style="padding:6px 0"><b>Phone</b></td><td>{doc['phone']}</td></tr>
-            <tr><td style="padding:6px 0"><b>Email</b></td><td>{doc.get('email','-')}</td></tr>
-            <tr><td style="padding:6px 0"><b>Property</b></td><td>{doc['property_title']}</td></tr>
-            <tr><td style="padding:6px 0"><b>Type</b></td><td>{doc['listing_type']} / {doc['category']}</td></tr>
-            <tr><td style="padding:6px 0"><b>City</b></td><td>{doc['city']}</td></tr>
-            <tr><td style="padding:6px 0"><b>Price</b></td><td>{doc.get('price','-')}</td></tr>
-            <tr><td style="padding:6px 0"><b>Description</b></td><td>{doc.get('description','-')}</td></tr>
-          </table>
-        </div>
-        """
-        params = {"from": SENDER_EMAIL, "to": [OWNER_EMAIL],
-                  "subject": f"New Listing: {doc['property_title']}", "html": html}
-        await asyncio.to_thread(resend.Emails.send, params)
+        html = f"<h2>New Listing: {doc['title']}</h2><p>By {user.get('name')} ({user.get('email')})</p><p>{doc['city']} · {doc['type']} · {doc.get('price')}</p>"
+        await asyncio.to_thread(resend.Emails.send, {
+            "from": SENDER_EMAIL, "to": [OWNER_EMAIL],
+            "subject": f"New Listing: {doc['title']}", "html": html})
         return True
     except Exception as e:
-        logger.error("Email send failed: %s", str(e))
+        logger.error("Email failed: %s", e)
         return False
 
 
+# ----------------------------- AI search -----------------------------
 @api_router.post("/ai-search")
 async def ai_search(req: AiSearchRequest):
     filters = {}
@@ -251,8 +448,6 @@ async def ai_search(req: AiSearchRequest):
         except Exception as e:
             logger.error("AI parse failed: %s", str(e))
     filters = {**keyword_parse(req.query), **{k: v for k, v in filters.items() if v}}
-    # keyword search is only used when no structural filter is present, to avoid
-    # over-constraining results (e.g. generic terms like "apartment")
     has_structural = any(filters.get(k) for k in ("type", "city", "category"))
     keyword = None if has_structural else filters.get("keyword")
     query = build_query(
@@ -315,18 +510,32 @@ async def parse_query_with_llm(query):
 
 app.include_router(api_router)
 
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
 app.add_middleware(
     CORSMiddleware,
+    allow_origin_regex=".*",
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
 @app.on_event("startup")
-async def startup_seed():
+async def startup():
     await ensure_seed()
+    await auth_utils.seed_admin(db)
+    try:
+        await db.users.create_index("email", unique=True)
+        await db.users.create_index("user_id")
+        await db.user_sessions.create_index("session_token")
+        await db.properties.create_index("owner_id")
+    except Exception as e:
+        logger.error("Index creation: %s", e)
 
 
 @app.on_event("shutdown")

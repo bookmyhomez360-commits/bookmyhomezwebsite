@@ -1,8 +1,17 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Menu, X, Instagram, Facebook, Youtube } from "lucide-react";
+import { Menu, X, Instagram, Facebook, Youtube, LayoutDashboard, LogOut, User } from "lucide-react";
 import { BRAND, whatsappLink } from "@/lib/config";
+import { useAuth } from "@/context/AuthContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const WhatsAppIcon = ({ size = 17 }) => (
   <svg viewBox="0 0 32 32" width={size} height={size} className="fill-current">
@@ -28,6 +37,12 @@ export default function Navbar({ onListClick }) {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/");
+  };
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -105,6 +120,45 @@ export default function Navbar({ onListClick }) {
           >
             List your property
           </button>
+
+          {user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  data-testid="nav-profile"
+                  className="hidden h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-indigo-600 text-sm font-semibold text-white ring-2 ring-white/10 transition-transform hover:scale-105 md:flex"
+                  aria-label="Profile"
+                >
+                  {user.picture ? (
+                    <img src={user.picture} alt={user.name} className="h-full w-full object-cover" />
+                  ) : (
+                    (user.name || user.email || "?").charAt(0).toUpperCase()
+                  )}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="border-white/10 bg-slate-900 text-white">
+                <DropdownMenuLabel className="text-slate-300">
+                  {user.name}
+                  <span className="block text-xs font-normal uppercase tracking-wide text-indigo-400">{user.role}</span>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-white/10" />
+                <DropdownMenuItem data-testid="nav-dashboard" onClick={() => navigate("/dashboard")} className="cursor-pointer focus:bg-white/10 focus:text-white">
+                  <LayoutDashboard size={15} className="mr-2" /> Dashboard
+                </DropdownMenuItem>
+                <DropdownMenuItem data-testid="nav-logout" onClick={handleLogout} className="cursor-pointer focus:bg-white/10 focus:text-white">
+                  <LogOut size={15} className="mr-2" /> Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Link
+              data-testid="nav-login"
+              to="/login"
+              className="hidden items-center gap-1.5 rounded-full border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/10 md:inline-flex"
+            >
+              <User size={16} /> Login
+            </Link>
+          )}
           <button
             data-testid="nav-mobile-toggle"
             className="text-white md:hidden"
@@ -144,6 +198,14 @@ export default function Navbar({ onListClick }) {
           >
             List your property — free
           </button>
+          {user ? (
+            <div className="mt-3 space-y-1">
+              <button data-testid="nav-mobile-dashboard" onClick={() => { navigate("/dashboard"); setOpen(false); }} className="block w-full py-3 text-left text-slate-200">Dashboard</button>
+              <button data-testid="nav-mobile-logout" onClick={() => { handleLogout(); setOpen(false); }} className="block w-full py-3 text-left text-slate-200">Log out</button>
+            </div>
+          ) : (
+            <button data-testid="nav-mobile-login" onClick={() => { navigate("/login"); setOpen(false); }} className="mt-3 w-full rounded-full border border-white/15 py-3 font-semibold text-white">Login / Sign up</button>
+          )}
           <div className="mt-4 flex items-center gap-2 border-t border-white/10 pt-4">
             {SOCIALS.map(({ key, href, Icon, label }) => (
               <a

@@ -1,12 +1,12 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { BedDouble, Bath, Maximize, MapPin } from "lucide-react";
-import { formatPrice } from "@/lib/api";
+import { formatPrice, mediaUrl } from "@/lib/api";
 
 const TYPE_LABEL = { buy: "For Sale", rent: "For Rent", shortstay: "Short Stay" };
 
 export default function PropertyCard({ property, index = 0 }) {
-  const img = property.images?.[0];
+  const img = property.images?.[0] ? mediaUrl(property.images[0]) : null;
   return (
     <motion.div
       data-testid={`property-card-${property.id}`}

@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { BedDouble, Bath, Maximize, MapPin, Loader2, ArrowLeft, Phone } from "lucide-react";
-import { getProperty, formatPrice } from "@/lib/api";
+import { BedDouble, Bath, Maximize, MapPin, Loader2, ArrowLeft, Phone, Send, CheckCircle2 } from "lucide-react";
+import { toast } from "sonner";
+import { getProperty, createEnquiry, formatPrice, mediaUrl } from "@/lib/api";
 import { whatsappLink } from "@/lib/config";
 
 const TYPE_LABEL = { buy: "For Sale", rent: "For Rent", shortstay: "Short Stay" };
@@ -13,6 +14,27 @@ export default function PropertyDetail() {
   const [active, setActive] = useState(0);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [enq, setEnq] = useState({ name: "", phone: "", message: "" });
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  const submitEnquiry = async (e) => {
+    e.preventDefault();
+    if (!enq.name || !enq.phone) {
+      toast.error("Please enter your name and phone");
+      return;
+    }
+    setSending(true);
+    try {
+      await createEnquiry(id, enq);
+      setSent(true);
+      toast.success("Enquiry sent! The owner will reach out soon.");
+    } catch {
+      toast.error("Could not send enquiry. Try again.");
+    } finally {
+      setSending(false);
+    }
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -57,7 +79,7 @@ export default function PropertyDetail() {
         >
           <div className="aspect-[16/9] bg-slate-900">
             {images[active] && (
-              <img src={images[active]} alt={prop.title} className="h-full w-full object-cover" />
+              <img src={mediaUrl(images[active])} alt={prop.title} className="h-full w-full object-cover" />
             )}
           </div>
         </motion.div>
@@ -72,9 +94,15 @@ export default function PropertyDetail() {
                   active === i ? "border-indigo-500" : "border-transparent opacity-70"
                 }`}
               >
-                <img src={img} alt="" className="h-full w-full object-cover" />
+                <img src={mediaUrl(img)} alt="" className="h-full w-full object-cover" />
               </button>
             ))}
+          </div>
+        )}
+
+        {prop.video && (
+          <div className="mt-4 overflow-hidden rounded-2xl border border-white/10" data-testid="property-video">
+            <video src={mediaUrl(prop.video)} controls className="h-full w-full bg-black" />
           </div>
         )}
 
@@ -125,6 +153,27 @@ export default function PropertyDetail() {
               <p className="mt-4 text-center text-xs text-slate-500">
                 Zero brokerage · Verified listing
               </p>
+            </div>
+
+            {/* Enquiry form -> lead */}
+            <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-6" data-testid="enquiry-box">
+              {sent ? (
+                <div className="flex flex-col items-center py-4 text-center">
+                  <CheckCircle2 className="text-green-400" size={32} />
+                  <p className="mt-3 font-medium text-white">Enquiry sent!</p>
+                  <p className="mt-1 text-sm text-slate-400">The owner will contact you shortly.</p>
+                </div>
+              ) : (
+                <form onSubmit={submitEnquiry} className="space-y-3">
+                  <p className="font-medium text-white">Request a callback</p>
+                  <input data-testid="enq-name" className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-white placeholder:text-slate-500 outline-none focus:border-indigo-500" placeholder="Your name" value={enq.name} onChange={(e) => setEnq({ ...enq, name: e.target.value })} />
+                  <input data-testid="enq-phone" className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-white placeholder:text-slate-500 outline-none focus:border-indigo-500" placeholder="Phone number" value={enq.phone} onChange={(e) => setEnq({ ...enq, phone: e.target.value })} />
+                  <textarea data-testid="enq-message" rows={2} className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-white placeholder:text-slate-500 outline-none focus:border-indigo-500" placeholder="Message (optional)" value={enq.message} onChange={(e) => setEnq({ ...enq, message: e.target.value })} />
+                  <button type="submit" data-testid="enq-submit" disabled={sending} className="flex w-full items-center justify-center gap-2 rounded-full bg-white py-3 font-semibold text-slate-900 transition-transform duration-200 hover:bg-slate-100 active:scale-95 disabled:opacity-60">
+                    {sending ? <Loader2 className="animate-spin" size={18} /> : <Send size={16} />} Send enquiry
+                  </button>
+                </form>
+              )}
             </div>
           </div>
         </div>
