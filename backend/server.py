@@ -477,8 +477,9 @@ def keyword_parse(text):
     return f
 
 
-async def parse_query_with_llm(query):
-    from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
+async def parse_query_with_llm(query: str):
+    from openai import AsyncOpenAI
+    client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
     system = (
         "You are the search assistant for BookMyHomez, an Indian real estate portal. "
         "Convert the user's natural-language request into JSON filters. "
@@ -489,15 +490,14 @@ async def parse_query_with_llm(query):
         "keyword (string or null), reply (a short friendly one-line response to the user). "
         "Prices are in Indian Rupees. Do not include any text outside the JSON."
     )
-    chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=str(uuid.uuid4()),
-                   system_message=system).with_model("openai", "gpt-5.4")
-    full = ""
-    async for ev in chat.stream_message(UserMessage(text=query)):
-        if isinstance(ev, TextDelta):
-            full += ev.content
-        elif isinstance(ev, StreamDone):
-            break
-    full = full.strip()
+    response = await client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": query}
+        ]
+    )
+    full = response.choices[0].message.content.strip()
     if full.startswith("```"):
         full = full.split("```")[1]
         if full.startswith("json"):
