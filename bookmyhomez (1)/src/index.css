@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+@keyframes kenBurns {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes heroTextSlideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(28px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-hero-text-stagger {
+  animation: heroTextSlideUp 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards;
+  opacity: 0;
+}
+
+.animate-ken-burns {
+  animation: kenBurns 18s ease-in-out infinite alternate;
+}
