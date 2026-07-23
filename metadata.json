@@ -1,0 +1,6 @@
+{
+  "name": "BookMyHomez",
+  "description": "3D real estate web application featuring 3D villa models, property listings for buy, rent, short stay, and plots, multi-step listing wizard, GPS location tagging, and user/admin account portal.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,44 @@
+{
+  "entities": {
+    "properties": {
+      "title": "Properties Collection",
+      "description": "Real estate property listings created by agents, owners, and administrators",
+      "properties": {
+        "id": { "type": "number", "description": "Unique property ID" },
+        "title": { "type": "string", "description": "Property title" },
+        "category": { "type": "string", "description": "Category (Buy, Rent, Short Stay, Plots, PG/Co-living)" },
+        "status": { "type": "string", "description": "Availability status (Available, Booked)" },
+        "city": { "type": "string", "description": "City name" },
+        "locality": { "type": "string", "description": "Locality or area" },
+        "bhk": { "type": "string", "description": "BHK configuration" },
+        "area": { "type": "number", "description": "Square feet area" },
+        "price": { "type": "number", "description": "Price in INR" },
+        "ownerId": { "type": "string", "description": "Owner/Agent user ID" },
+        "ownerName": { "type": "string", "description": "Owner/Agent name" },
+        "description": { "type": "string", "description": "Full property description" },
+        "images": { "type": "array", "description": "Array of image URLs" },
+        "deposit": { "type": "number", "description": "Security deposit in INR" },
+        "availDate": { "type": "string", "description": "Availability date" },
+        "propertyAge": { "type": "string", "description": "Age of property" },
+        "bathrooms": { "type": "string", "description": "Number of bathrooms" },
+        "balconies": { "type": "string", "description": "Number of balconies" },
+        "furnishing": { "type": "string", "description": "Furnishing state" },
+        "amenities": { "type": "array", "description": "List of amenities" },
+        "propType": { "type": "string", "description": "Property Type" },
+        "subType": { "type": "string", "description": "Sub Type" },
+        "createdAt": { "type": "string", "description": "ISO creation timestamp" }
+      }
+    },
+    "users": {
+      "title": "Registered Users & Agents",
+      "description": "Registered agents, verified owners, and buyers",
+      "properties": {
+        "id": { "type": "string", "description": "User ID" },
+        "name": { "type": "string", "description": "Full name" },
+        "email": { "type": "string", "description": "User email address" },
+        "role": { "type": "string", "description": "Role (Verified Owner, Administrator, Agent, Buyer)" },
+        "avatar": { "type": "string", "description": "Avatar image URL" }
+      }
+    }
+  }
+}
